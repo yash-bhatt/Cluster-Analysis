@@ -7,7 +7,6 @@ salaries <- read.csv("Salaries1.csv", header = TRUE, sep = ",")
 season_stats <- read.csv("Seasons_Stats.csv", header = TRUE, sep = ",")
 
 #Exploring the data:
-str(salaries)
 str(season_stats)
 
 # Data cleaning:
@@ -21,8 +20,8 @@ nba <- season_stats %>%
            "3PA", "2P", "2PA","FT", "FTA", "TRB", "AST", "STL", "BLK", "PTS", "VORP", "PER"))
 
 #Normalize on a per game basis for better comparions 
-nba_per_game <- data.frame(sapply(nba[,c("MP", "FG", "FGA", "3P", "3PA", "2P",
-                                         "2PA", "FT", "FTA", "TRB", "AST", "STL","BLK", "PTS")],
+nba_per_game <- data.frame(sapply(nba %>% select(c("MP", "FG", "FGA", "3P", "3PA", "2P",
+                                         "2PA", "FT", "FTA", "TRB", "AST", "STL","BLK", "PTS")),
                                   function(x){x/nba$G}))
 
 colnames(nba_per_game) = paste0(c("MP", "FG", "FGA", "3P", "3PA", "2P","2PA", "FT", "FTA", "TRB",
@@ -33,7 +32,7 @@ nba <- cbind(nba, nba_per_game)
 number_teams <- data.frame(nba %>% count(Player) %>% arrange(desc(n)) %>% rename("number_teams" = "n"))
 nba <- left_join(nba, number_teams, by = "Player")
 players_multiple_teams <- nba %>% filter(number_teams >1)
-players_minutes_max <- data.frame(players_multiple_teams %>% filter(Tm != "TOT") %>% select(Player, MP) %>% group_by(Player) %>% summarize(max_min = max(MP)))
+players_minutes_max <- data.frame(players_multiple_teams %>% filter(Tm != "TOT") %>% select(Player, MP) %>% group_by(Player) %>% summarize(max_min = max(MP))) #Why we are not taking ToT? Tm stands for team.
 team_minutes_max <- data.frame(left_join(players_minutes_max, players_multiple_teams[,c("Player", "MP", "Tm")], by = c("max_min" = "MP", "Player")))
 player_team_assign <- data.frame(left_join(players_multiple_teams %>% select(Player, Tm) %>% filter(Tm == "TOT"), team_minutes_max %>% select(Player, Tm), by = "Player"))
 players_one_team <- data.frame(nba %>% filter(number_teams == 1) %>% select(Player, Tm))
@@ -57,7 +56,68 @@ nba <- nba[!is.na(nba$Tm), -which(names(nba) %in% "Tm.y")]
 #Check for missing values 
 sapply(nba, function(x) sum(is.na(x)))
 
+#Salaries dataset
+## Exploring the dataset
+names(salaries)
+str(salaries)
+colSums(is.na(salaries))
+salaries <- rename(salaries, "RK" = "ï..RK")
 
+#Joining the two datasets:
+finalnba <- left_join(nba, salaries, by = c("Player" = "NAME"))
 
+str(finalnba)
 
+#EDA on the final dataset:
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(corrplot)
 
+#Density plot
+features <- grep("_pg", names(finalnba), value = TRUE)
+features <- nba %>% 
+  select(features)
+
+features %>% 
+  pivot_longer(cols = everything()) %>% 
+  ggplot(aes(x = value)) + 
+  geom_density() + 
+  facet_wrap(~name, scales = "free") + 
+  labs(title = "Density Plot", x= "")
+
+#All plots are looking positively skewed except for the Minutes played
+
+# corr plot
+a <- cor(features)
+corrplot(a, type = "lower")
+
+# All seems to have a positive corr.
+
+#PCA time
+## But before doing the PCA we looked into the spread of our dataset.
+
+install.packages("ggfortify")
+library(ggfortify)
+library(psych)
+
+round(apply(features, MARGIN = 2, FUN = var), 2)
+
+#scaling
+scaled_features <- scale(features)
+
+#Use PCA
+pca <- prcomp(scaled_features)
+summary(pca)
+
+#Plot
+table(finalnba$Pos, useNA = "always")
+
+#To drop any null level
+# finalnba$Pos <- droplevels(finalnba$Pos, exclude = if(anyNA(levels(finalnba$Pos)))NULL else NA)
+
+autoplot(pca, data = finalnba, colour = "Pos")
+scree(scaled_features)
+
+#Modelling
+## K-Means clustering
