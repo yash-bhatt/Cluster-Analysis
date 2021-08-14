@@ -97,7 +97,6 @@ corrplot(a, type = "lower")
 #PCA time
 ## But before doing the PCA we looked into the spread of our dataset.
 
-install.packages("ggfortify")
 library(ggfortify)
 library(psych)
 
@@ -113,11 +112,24 @@ summary(pca)
 #Plot
 table(finalnba$Pos, useNA = "always")
 
-#To drop any null level
-# finalnba$Pos <- droplevels(finalnba$Pos, exclude = if(anyNA(levels(finalnba$Pos)))NULL else NA)
-
 autoplot(pca, data = finalnba, colour = "Pos")
 scree(scaled_features)
 
 #Modelling
 ## K-Means clustering
+library(NbClust)
+library(factoextra)
+
+size <- NbClust(scaled_features, max.nc = 6, method = "kmeans", index = "silhouette")
+k <- 4
+k4 <- kmeans(x = scaled_features, centers = k, nstart = 100, algorithm = "Hartigan-Wong")
+
+finalnba$klab4 <- factor(k4$cluster)
+
+#plot 
+autoplot(pca, data = finalnba, colour = "klab4")
+fviz_cluster(k4, geom = "point", data = scaled_features)
+
+## Hierarchical Clustering
+
+
