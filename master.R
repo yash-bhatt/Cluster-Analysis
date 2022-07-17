@@ -122,6 +122,9 @@ summary(pca)
 table(finalnba$Pos, useNA = "always")
 
 autoplot(pca, data = finalnba, colour = "Pos")
+#Save
+ggsave('pca_plot.png',
+       type = 'cairo')
 
 scree(scaled_features)
 
@@ -140,6 +143,29 @@ finalnba$klab4 <- factor(k4$cluster)
 autoplot(pca, data = finalnba, colour = "klab4")
 fviz_cluster(k4, geom = "point", data = scaled_features)
 
+ggsave('kmean_clustering.png')
+
 ## Hierarchical Clustering
+library(dendextend)
 
+#Calculate the Euclidean distance:
+distance <- dist(scaled_features, method = "euclidean")
 
+#single linkage 
+single <- hclust(d = distance, method = "single")
+
+#centroid linkage
+centroid <- hclust(d = distance, method = "centroid")
+
+#Ward's minimum variance 
+ward <- hclust(d = distance, method = "ward.D2")
+
+#plots of all hierarchial clustering
+plot(single, hang = -1, main = "Nearest Neighbor Method (Single Linkage)")
+plot(centroid, hang = -1, main = "Groups Centroid Linkage")
+dendrogram1 <- as.dendrogram(ward)
+
+##Decide the number of clusters!
+k <- 4
+color <- dendextend::color_branches(dendrogram1, k = k)
+plot(color, main = "Ward's Minimum Variance Method; K=4")
